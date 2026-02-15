@@ -1,24 +1,31 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const connectDB = require('./config/db')
+const connectDB = require('./config/db');
+const { errorHandler } = require('./middleware/errorMiddle');
 
 dotenv.config();
 
+// mongodb
 connectDB();
 
 const app = express();
 
-app.use(cors());
+// middle
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cors());
+
+app.use('/api/auth', require('./routes/authRoutes'));
 
 app.get('/', (req, res) => {
-    res.json({ message: 'textlo API is running...' });
+  res.json({ message: 'textlo API is running...' });
 });
 
-const PORT = process.env.PORT || 5000;
+app.use(errorHandler);
+
+const PORT = process.env.PORT || 3001;
 
 const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
