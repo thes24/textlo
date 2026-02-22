@@ -1,111 +1,116 @@
-// temp
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/authContext';
-import { useSocket } from '../context/socketContext';
+import { createConversation } from '../services/api';
+import Sidebar from '../components/SideBar';
+import ConversationList from '../components/ConversationList';
+import ChatWindow from '../components/ChatWindow';
 
 const Chat = () => {
+  const [view, setView] = useState('conversations');
+  const [selectedConversation, setSelectedConversation] = useState(null);
   const { user, logout } = useAuth();
-  const { emit, on, off, onlineUsers } = useSocket();
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
 
-  useEffect(() => {
-    const handleReceiveMessage = (message) => {
-      console.log('Received message:', message);
-      setMessages((prev) => [...prev, message]);
-    };
+  if (!user) {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <p>Loading...</p>
+      </div>
+    );
+  }
 
-    on('receive_message', handleReceiveMessage);
-
-    return () => {
-      off('receive_message', handleReceiveMessage);
-    };
-  }, [on, off]);
-
-  const handleSendMessage = () => {
-    if (!inputMessage.trim()) return;
-
-    // test
-    emit('send_message', {
-      convId: 'REAL_ID_REQUIRED', // REAL ID REQUIRED
-      content: inputMessage,
-      senderId: user._id,
-    });
-
-    setInputMessage('');
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
+  const handleSelectUser = async (selectedUser) => {
+    try {
+      const conversation = await createConversation(
+        selectedUser._id,
+        user.token
+      );
+      setSelectedConversation(conversation);
+      setView('conversations');
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
     }
   };
 
+  const handleSelectConversation = (conversation) => {
+    setSelectedConversation(conversation);
+  };
+
   return (
-    <div className="min-h-screen bg-gray-100 p-8">
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
-        <div className="mb-4 rounded-lg bg-white p-6 shadow">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Welcome, {user.username}!</h1>
-              <p className="mt-1 text-sm text-gray-600">
-                Online users: {onlineUsers.length}
+    <div className="flex h-screen overflow-hidden bg-gray-100">
+      {/* left sidebar */}
+      <div className="flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white">
+        {/* header */}
+        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 p-4">
+          <div className="flex items-center gap-3">
+            <div className="relative h-10 w-10 shrink-0">
+              <img
+                src={user.avatar || 'avatar-default.png'}
+                alt={user.username}
+                className="h-full w-full rounded-full object-cover"
+                onError={(e) => {
+                  e.target.src = '/avatar-default.png';
+                }}
+              />
+              <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"></span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-semibold">{user.username}</p>
+              <p className="text-xs text-gray-500">Online</p>
+            </div>
+          </div>
+          <button
+            onClick={logout}
+            className="rounded px-3 py-1 text-sm text-red-500 hover:bg-red-50"
+          >
+            Logout
+          </button>
+        </div>
+
+        {/* tabs */}
+        <div className="flex shrink-0 border-b border-gray-200">
+          <button
+            onClick={() => setView('conversations')}
+            className={`flex-1 py-3 text-sm font-medium ${view === 'conversations' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Chats
+          </button>
+          <button
+            onClick={() => setView('users')}
+            className={`flex-1 py-3 text-sm font-medium ${view === 'users' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-gray-700'}`}
+          >
+            Users
+          </button>
+        </div>
+
+        {/* content */}
+        <div className="flex-1 overflow-hidden">
+          {view === 'conversations' ? (
+            <ConversationList
+              onSelectConversation={handleSelectConversation}
+              selectedConvId={selectedConversation?._id}
+            />
+          ) : (
+            <Sidebar onSelectUser={handleSelectUser} />
+          )}
+        </div>
+      </div>
+
+      {/* main chat area */}
+      <div className="flex flex-1 flex-col bg-white">
+        {selectedConversation ? (
+          <ChatWindow conversation={selectedConversation} />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <div className="text-center">
+              <p className="text-2xl font-semibold text-gray-400">
+                Select a conversation
+              </p>
+              <p className="mt-2 text-gray-500">
+                Choose a chat or start a new conversation
               </p>
             </div>
-            <button
-              onClick={logout}
-              className="rounded bg-red-500 px-4 py-2 text-white hover:bg-red-600"
-            >
-              Logout
-            </button>
           </div>
-        </div>
-        <div className="rounded-lg bg-white p-6 shadow">
-          <h2 className="mb-4 text-xl font-semibold">Chat (Test)</h2>
-          {/* Messages */}
-          <div className="mb-4 h-64 overflow-y-auto rounded border border-gray-200 p-4">
-            {messages.length === 0 ? (
-              <p className="text-center text-gray-400">No messages yet</p>
-            ) : (
-              messages.map((msg, index) => (
-                <div key={index} className="mb-2">
-                  <span className="font-semibold">
-                    {msg.sender?.username || 'Unknown'}:
-                  </span>{' '}
-                  <span>{msg.content}</span>
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Input */}
-          <div className="flex gap-2">
-            <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Type a message..."
-              rows={3}
-              className="flex-1 resize-none rounded border border-gray-300 px-4 py-2 focus:border-blue-500 focus:outline-none"
-            />
-            <button
-              onClick={handleSendMessage}
-              className="rounded bg-blue-500 px-6 py-2 text-white hover:bg-blue-600"
-            >
-              Send
-            </button>
-          </div>
-
-          {/* Debug */}
-          <div className="mt-4 rounded bg-gray-50 p-4 text-sm">
-            <p className="font-semibold">Debug Info:</p>
-            <p>User ID {user._id}</p>
-            <p>Username: {user.username}</p>
-            <p>Online Users: {JSON.stringify(onlineUsers)}</p>
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

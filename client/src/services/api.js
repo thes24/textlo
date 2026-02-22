@@ -36,8 +36,8 @@ export const login = async (credentials) => {
   return data;
 };
 
-export const getCurrentUser = async (token) => {
-  const response = await fetch(`${API_URL}/auth/me`, {
+export const getUsers = async (token) => {
+  const response = await fetch(`${API_URL}/users`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
@@ -46,7 +46,73 @@ export const getCurrentUser = async (token) => {
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Failed to get user');
+    throw new Error(data.message || 'Failed to get users');
+  }
+
+  return data;
+};
+
+export const getConversations = async (token) => {
+  const response = await fetch(`${API_URL}/conversations`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to get conversations');
+  }
+
+  return data;
+};
+
+export const createConversation = async (ptpId, token) => {
+  const response = await fetch(`${API_URL}/conversations`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ptpId }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to create conversation');
+  }
+
+  return data;
+};
+
+export const getMessages = async (convId, token, page = 1) => {
+  const response = await fetch(`${API_URL}/messages/${convId}?page=${page}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to get messages');
+  }
+
+  return data;
+};
+
+export const sendMessage = async (messageData, token) => {
+  const response = await fetch(`${API_URL}/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(messageData),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to send message');
   }
 
   return data;

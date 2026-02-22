@@ -20,6 +20,9 @@ const socketHandler = (io) => {
           status: 'online',
         });
 
+        const currOnlineUsers = Array.from(onlineUsers.keys());
+        socket.emit('online_users', currOnlineUsers);
+
         // inform all other users, this user is online
         io.emit('user_online', userId);
 
