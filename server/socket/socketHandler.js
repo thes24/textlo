@@ -58,6 +58,12 @@ const socketHandler = (io) => {
 
         // send to all participants
         conversation.participants.forEach((ptpId) => {
+          const participantIdStr = ptpId.toString();
+
+          if (participantIdStr === senderId) {
+            return;
+          }
+
           const ptpSocketId = onlineUsers.get(ptpId.toString());
           if (ptpSocketId) {
             io.to(ptpSocketId).emit('receive_message', message);

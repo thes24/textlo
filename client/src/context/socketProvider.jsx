@@ -21,8 +21,14 @@ export const SocketProvider = ({ children }) => {
     // notify that user joined
     newSocket.emit('join', user._id);
 
+    newSocket.on('online_users', (users) => {
+      console.log('Received online users:', users);
+      setOnlineUsers(users);
+    });
+
     // online user listener
     newSocket.on('user_online', (userId) => {
+      console.log('User came online:', userId);
       setOnlineUsers((prev) => {
         if (!prev.includes(userId)) {
           return [...prev, userId];
@@ -33,6 +39,7 @@ export const SocketProvider = ({ children }) => {
 
     // offline user listener
     newSocket.on('user_offline', (userId) => {
+      console.log('User went offline:', userId);
       setOnlineUsers((prev) => prev.filter((id) => id !== userId));
     });
 
