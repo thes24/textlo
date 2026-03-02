@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 import { useAuth } from './authContext';
 import { SocketContext } from './socketContext';
@@ -56,24 +56,27 @@ export const SocketProvider = ({ children }) => {
     };
   }, [user]);
 
-  const emit = (event, data) => {
+  const emit = useCallback((event, data) => {
     socketRef.current?.emit(event, data);
-  };
+  }, []);
 
-  const on = (event, callback) => {
+  const on = useCallback((event, callback) => {
     socketRef.current?.on(event, callback);
-  };
+  }, []);
 
-  const off = (event, callback) => {
+  const off = useCallback((event, callback) => {
     socketRef.current?.off(event, callback);
-  };
+  }, []);
 
-  const value = {
-    emit,
-    on,
-    off,
-    onlineUsers,
-  };
+  const value = useMemo(
+    () => ({
+      emit,
+      on,
+      off,
+      onlineUsers,
+    }),
+    [emit, on, off, onlineUsers]
+  );
 
   return (
     <SocketContext.Provider value={value}>{children}</SocketContext.Provider>

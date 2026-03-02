@@ -75,10 +75,21 @@ const socketHandler = (io) => {
       }
     });
 
+    // join and leave
+    socket.on('join_conversation', (convId) => {
+      socket.join(convId);
+      console.log(`✅ Socket ${socket.id} joined room: ${convId}`);
+    });
+
+    socket.on('leave_conversation', (convId) => {
+      socket.leave(convId);
+      console.log(`❌ Socket ${socket.id} left room: ${convId}`);
+    });
+
     // typing indicator
     socket.on('typing', (data) => {
       const { convId, userId } = data;
-
+      console.log('⌨️  Typing event received:', data);
       // to same conversation room only
       socket.to(convId).emit('user_typing', {
         userId,
@@ -88,39 +99,18 @@ const socketHandler = (io) => {
 
     socket.on('stop_typing', (data) => {
       const { convId, userId } = data;
-
+      console.log('🛑 Stop typing event received:', data);
       socket.to(convId).emit('user_stop_typing', {
         userId,
         convId,
       });
-    });
-
-    socket.on('stop_typing', (data) => {
-      const { convId, userId } = data;
-
-      socket.to(convId).emit('user_stop_typing', {
-        userId,
-        convId,
-      });
-    });
-
-    // join and leave
-    socket.on('join_conversatoin', (convId) => {
-      socket.join(convId);
-      console.log(`User joined conversationL ${convId}`);
-    });
-
-    socket.on('leave_conversation', (convId) => {
-      socket.leave(convId);
-      console.log(`User left conversation: ${convId}`);
     });
 
     // mark as read
     socket.on('mark_read', async (data) => {
       try {
         const { msgId, userId } = data;
-
-        const mesage = await Message.findById(msgId);
+        const message = await Message.findById(msgId);
 
         // if not my message mark read
         if (message && message.sender.toString() !== userId) {

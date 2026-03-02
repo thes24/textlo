@@ -5,7 +5,9 @@ import { useSocket } from '../context/socketContext';
 const MessageInput = ({ convId, onMessageSent }) => {
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
   const textareaRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
   const { user } = useAuth();
   const { emit } = useSocket();
 
@@ -17,11 +19,50 @@ const MessageInput = ({ convId, onMessageSent }) => {
     }
   }, [message]);
 
+  const handleTyping = () => {
+    console.log('⌨️ Typing...', { convId, userId: user._id });
+    if (!isTyping) {
+      setIsTyping(true);
+      emit('typing', {
+        convId,
+        userId: user._id,
+      });
+    }
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      console.log('⏱️ Timeout - stop typing');
+      setIsTyping(false);
+      emit('stop_typing', {
+        convId,
+        userId: user._id,
+      });
+    }, 3000);
+  };
+
+  const handleChange = (e) => {
+    setMessage(e.target.value);
+    handleTyping();
+  };
+
   const handleSend = async () => {
     if (!message.trim() || sending) return;
 
     setSending(true);
     const messageToSend = message.trim();
+
+    setIsTyping(false);
+    emit('stop_typing', {
+      convId,
+      userId: user._id,
+    });
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     try {
       emit('send_message', {
@@ -58,13 +99,27 @@ const MessageInput = ({ convId, onMessageSent }) => {
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      if (isTyping) {
+        emit('stop_typing', {
+          convId,
+          userId: user._id,
+        });
+      }
+    };
+  }, [convId, user._id, emit, isTyping]);
+
   return (
     <div className="border-t border-gray-200 p-4">
       <div className="flex gap-2">
         <textarea
           ref={textareaRef}
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder="Type a message..."
           disabled={sending}

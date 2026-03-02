@@ -1,25 +1,36 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from '../context/authContext';
 import { useSocket } from '../context/socketContext';
 import { getMessages } from '../services/api';
 import MessageInput from './MessageInput';
 
 const ChatWindow = ({ conversation }) => {
+  const { user } = useAuth();
+  const { on, off, emit, onlineUsers } = useSocket();
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isTyping, setIsTyping] = useState(false);
   const messageEndRef = useRef(null);
-  const { user } = useAuth();
-  const { on, off, onlineUsers } = useSocket();
 
-  const otherUser = conversation.participants.find((p) => p._id !== user._id);
-  const isOnline = onlineUsers.includes(otherUser._id);
+  const convId = conversation?._id;
+
+  const otherUser = useMemo(() => {
+    if (!conversation?.participants) return null;
+    return conversation.participants.find(
+      (p) => String(p._id) !== String(user._id)
+    );
+  }, [conversation?.participants, user._id]);
+
+  const isOnline = onlineUsers.includes(otherUser?._id);
 
   // load message
   useEffect(() => {
+    if (!convId) return;
+
     const fetchMessages = async () => {
       setLoading(true);
       try {
-        const data = await getMessages(conversation._id, user.token);
+        const data = await getMessages(convId, user.token);
         setMessages(data.messages);
       } catch (error) {
         console.error('Failed to fetch messages:', error);
@@ -29,27 +40,74 @@ const ChatWindow = ({ conversation }) => {
     };
 
     fetchMessages();
-  }, [conversation._id, user.token]);
+  }, [convId, user.token]);
+
+  useEffect(() => {
+    if (!convId) return;
+
+    emit('join_conversation', convId);
+
+    return () => {
+      emit('leave_conversation', convId);
+    };
+  }, [convId, emit]);
 
   // receive message
   useEffect(() => {
-    const handleReceiveMessage = async (message) => {
-      if (message.convId === conversation._id) {
-        setMessages((prev) => [...prev, message]);
+    if (!convId) return;
+
+    const handleReceiveMessage = (message) => {
+      if (String(message.convId) === String(convId)) {
+        setMessages((prev) => {
+          const exists = prev.some((m) => m._id === message._id);
+          if (exists) return prev;
+          return [...prev, message];
+        });
       }
     };
-
     on('receive_message', handleReceiveMessage);
 
     return () => {
       off('receive_message', handleReceiveMessage);
     };
-  }, [conversation._id, on, off]);
+  }, [convId, on, off]);
+
+  useEffect(() => {
+    if (!convId || !otherUser?._id) return;
+
+    const handleTyping = ({ userId, convId: typingConvId }) => {
+      console.log('📩 user_typing received:', { userId, typingConvId });
+      if (
+        String(typingConvId) === String(convId) &&
+        String(userId) === String(otherUser._id)
+      ) {
+        setIsTyping(true);
+      }
+    };
+
+    const handleStopTyping = ({ userId, convId: typingConvId }) => {
+      if (
+        String(typingConvId) === String(convId) &&
+        String(userId) === String(otherUser._id)
+      ) {
+        setIsTyping(false);
+      }
+    };
+
+    on('user_typing', handleTyping);
+    on('user_stop_typing', handleStopTyping);
+
+    return () => {
+      off('user_typing', handleTyping);
+      off('user_stop_typing', handleStopTyping);
+      setIsTyping(false);
+    };
+  }, [convId, otherUser?._id, on, off]);
 
   // auto scroll
   useEffect(() => {
     messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, isTyping]);
 
   const handleSendMessage = (newMessage) => {
     setMessages((prev) => [...prev, newMessage]);
@@ -58,7 +116,15 @@ const ChatWindow = ({ conversation }) => {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-gray-400">Loading Message...</p>
+        <p className="text-gray-400">Loading messages...</p>
+      </div>
+    );
+  }
+
+  if (!otherUser) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-gray-400">Loading conversation...</p>
       </div>
     );
   }
@@ -68,9 +134,10 @@ const ChatWindow = ({ conversation }) => {
       {/* header */}
       <div className="flex items-center gap-3 border-b border-gray-200 p-4">
         <img
-          src={otherUser.avatar}
+          src={otherUser.avatar || '/avatar-default.png'}
           alt={otherUser.username}
           className="h-10 w-10 rounded-full"
+          onError={(e) => (e.target.src = '/avatar-default.png')}
         />
         <div>
           <h3 className="font-semibold">{otherUser.username}</h3>
@@ -112,6 +179,18 @@ const ChatWindow = ({ conversation }) => {
                 </div>
               );
             })}
+
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="rounded-lg bg-gray-200 px-4 py-2">
+                  <div className="flex gap-1">
+                    <span className="animate-bounce">•</span>
+                    <span className="animate-bounce [animation-delay:0.15s]">•</span>
+                    <span className="animate-bounce [animation-delay:0.3s]">•</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <div ref={messageEndRef} />
           </div>
         )}
@@ -119,7 +198,7 @@ const ChatWindow = ({ conversation }) => {
 
       {/* input */}
       <MessageInput
-        convId={conversation._id}
+        convId={convId}
         onMessageSent={handleSendMessage}
       />
     </div>
