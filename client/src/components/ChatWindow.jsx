@@ -10,7 +10,8 @@ const ChatWindow = ({ conversation }) => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
-  const messageEndRef = useRef(null);
+  const messagesEndRef = useRef(null);
+  const markedAsReadRef = useRef(new Set());
 
   const convId = conversation?._id;
 
@@ -27,11 +28,19 @@ const ChatWindow = ({ conversation }) => {
   useEffect(() => {
     if (!convId) return;
 
+    markedAsReadRef.current.clear();
+
     const fetchMessages = async () => {
       setLoading(true);
       try {
         const data = await getMessages(convId, user.token);
         setMessages(data.messages);
+
+        data.messages.forEach((msg) => {
+          if (msg.sender._id === user._id) {
+            markedAsReadRef.current.add(msg._id);
+          }
+        });
       } catch (error) {
         console.error('Failed to fetch messages:', error);
       } finally {
@@ -40,7 +49,7 @@ const ChatWindow = ({ conversation }) => {
     };
 
     fetchMessages();
-  }, [convId, user.token]);
+  }, [convId, user.token, user._id]);
 
   useEffect(() => {
     if (!convId) return;
@@ -63,6 +72,17 @@ const ChatWindow = ({ conversation }) => {
           if (exists) return prev;
           return [...prev, message];
         });
+
+        if (
+          message.sender._id !== user._id &&
+          !markedAsReadRef.current.has(message._id)
+        ) {
+          markedAsReadRef.current.add(message._id);
+          emit('mark_read', {
+            msgId: message._id,
+            userId: user._id,
+          });
+        }
       }
     };
     on('receive_message', handleReceiveMessage);
@@ -70,13 +90,56 @@ const ChatWindow = ({ conversation }) => {
     return () => {
       off('receive_message', handleReceiveMessage);
     };
-  }, [convId, on, off]);
+  }, [convId, on, off, emit, user._id]);
 
+  // message read event
+  useEffect(() => {
+    const handleMessageRead = ({ msgId }) => {
+      setMessages((prev) =>
+        prev.map((msg) =>
+          String(msg._id) === String(msgId)
+            ? { ...msg, read: true, readAt: new Date() }
+            : msg
+        )
+      );
+    };
+
+    on('message_read', handleMessageRead);
+
+    return () => {
+      off('message_read', handleMessageRead);
+    };
+  }, [on, off]);
+
+  // when open page make not read to read
+  useEffect(() => {
+    if (!convId || messages.length === 0) return;
+
+    // find not read
+    const unreadMessages = messages.filter(
+      (msg) =>
+        !msg.read &&
+        msg.sender._id !== user._id &&
+        !markedAsReadRef.current.has(msg._id)
+    );
+
+    // read
+    if (unreadMessages.length > 0) {
+      unreadMessages.forEach((msg) => {
+        markedAsReadRef.current.add(msg._id);
+        emit('mark_read', {
+          msgId: msg._id,
+          userId: user._id,
+        });
+      });
+    }
+  }, [convId, user._id, emit, messages.length]);
+
+  // typing indicator
   useEffect(() => {
     if (!convId || !otherUser?._id) return;
 
     const handleTyping = ({ userId, convId: typingConvId }) => {
-      console.log('📩 user_typing received:', { userId, typingConvId });
       if (
         String(typingConvId) === String(convId) &&
         String(userId) === String(otherUser._id)
@@ -106,12 +169,8 @@ const ChatWindow = ({ conversation }) => {
 
   // auto scroll
   useEffect(() => {
-    messageEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
-
-  const handleSendMessage = (newMessage) => {
-    setMessages((prev) => [...prev, newMessage]);
-  };
 
   if (loading) {
     return (
@@ -134,15 +193,21 @@ const ChatWindow = ({ conversation }) => {
       {/* header */}
       <div className="flex items-center gap-3 border-b border-gray-200 p-4">
         <img
-          src={otherUser.avatar || '/avatar-default.png'}
+          src={otherUser.avatar || '/avatar-default.svg'}
           alt={otherUser.username}
           className="h-10 w-10 rounded-full"
-          onError={(e) => (e.target.src = '/avatar-default.png')}
+          onError={(e) => (e.target.src = '/avatar-default.svg')}
         />
         <div>
           <h3 className="font-semibold">{otherUser.username}</h3>
           <p className="text-sm text-gray-500">
-            {isOnline ? 'Online' : 'Offline'}
+            {isTyping ? (
+              <span className="text-blue-500">typing...</span>
+            ) : isOnline ? (
+              'Online'
+            ) : (
+              'Offline'
+            )}
           </p>
         </div>
       </div>
@@ -156,7 +221,7 @@ const ChatWindow = ({ conversation }) => {
         ) : (
           <div className="space-y-4">
             {messages.map((msg, index) => {
-              const isMyMessage = msg.sender._id == user._id;
+              const isMyMessage = msg.sender._id === user._id;
 
               return (
                 <div
@@ -164,17 +229,34 @@ const ChatWindow = ({ conversation }) => {
                   className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-xs rounded-lg px-4 py-2 ${isMyMessage ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}
+                    className={`max-w-xs rounded-lg px-4 py-2 ${
+                      isMyMessage
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 text-gray-800'
+                    }`}
                   >
                     <p className="wrap-break-word">{msg.content}</p>
-                    <p
-                      className={`mt-1 text-xs ${isMyMessage ? 'text-blue-100' : 'text-gray-500'}`}
-                    >
-                      {new Date(msg.createdAt).toLocaleTimeString('ko-KR', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
+                    <div className="mt-1 flex items-center justify-end gap-1 text-xs">
+                      <span
+                        className={
+                          isMyMessage ? 'text-blue-100' : 'text-gray-500'
+                        }
+                      >
+                        {new Date(msg.createdAt).toLocaleTimeString('ko-KR', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                      {isMyMessage && (
+                        <span
+                          className={
+                            msg.read ? 'text-blue-200' : 'text-blue-300'
+                          }
+                        >
+                          {msg.read ? '✓✓' : '✓'}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -185,22 +267,23 @@ const ChatWindow = ({ conversation }) => {
                 <div className="rounded-lg bg-gray-200 px-4 py-2">
                   <div className="flex gap-1">
                     <span className="animate-bounce">•</span>
-                    <span className="animate-bounce [animation-delay:0.15s]">•</span>
-                    <span className="animate-bounce [animation-delay:0.3s]">•</span>
+                    <span className="animate-bounce [animation-delay:0.15s]">
+                      •
+                    </span>
+                    <span className="animate-bounce [animation-delay:0.3s]">
+                      •
+                    </span>
                   </div>
                 </div>
               </div>
             )}
-            <div ref={messageEndRef} />
+            <div ref={messagesEndRef} />
           </div>
         )}
       </div>
 
       {/* input */}
-      <MessageInput
-        convId={convId}
-        onMessageSent={handleSendMessage}
-      />
+      <MessageInput convId={convId} />
     </div>
   );
 };
