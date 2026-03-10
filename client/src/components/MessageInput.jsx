@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/authContext';
 import { useSocket } from '../context/socketContext';
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid';
 
 const MessageInput = ({ convId }) => {
   const [message, setMessage] = useState('');
@@ -118,9 +119,10 @@ const MessageInput = ({ convId }) => {
         <button
           onClick={handleSend}
           disabled={!message.trim() || sending}
-          className="h-10 shrink-0 rounded-lg bg-blue-500 px-6 text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-500 text-white transition hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-300"
+          aria-label="Send message"
         >
-          {sending ? '...' : 'Send'}
+          <PaperAirplaneIcon className="h-5 w-5" />
         </button>
       </div>
     </div>
