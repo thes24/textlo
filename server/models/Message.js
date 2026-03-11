@@ -14,21 +14,13 @@ const messageSchema = new mongoose.Schema(
     },
     content: {
       type: String,
-      required: true,
-      trim: true,
     },
     type: {
       type: String,
-      enum: ['text', 'image', 'file'],
+      enum: ['text', 'image'],
       default: 'text',
     },
     imageUrl: {
-      type: String,
-    },
-    fileUrl: {
-      type: String,
-    },
-    fileName: {
       type: String,
     },
     read: {
@@ -43,7 +35,5 @@ const messageSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
-
-messageSchema.index({ convId: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Message', messageSchema);

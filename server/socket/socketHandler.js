@@ -1,4 +1,3 @@
-// server/socket/socketHandler.js
 const Message = require('../models/Message');
 const Conversation = require('../models/Conversation');
 const User = require('../models/User');
@@ -32,13 +31,14 @@ const socketHandler = (io) => {
     // send message
     socket.on('send_message', async (data) => {
       try {
-        const { convId, content, senderId } = data;
+        const { convId, content, senderId, type, imageUrl } = data;
 
         const message = await Message.create({
           convId,
           sender: senderId,
-          content,
-          type: 'text',
+          content: content || '',
+          type: type || 'text',
+          imageUrl: imageUrl || null,
         });
 
         await message.populate('sender', 'username avatar');

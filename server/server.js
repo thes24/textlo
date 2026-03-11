@@ -1,15 +1,13 @@
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const http = require('http');
-const { Server } = require('socket.io');
 const connectDB = require('./config/db');
 const { errorHandler } = require('./middleware/errorMiddle');
+const http = require('http');
+const { Server } = require('socket.io');
 const socketHandler = require('./socket/socketHandler');
 
 dotenv.config();
-
-// mongodb
 connectDB();
 
 const app = express();
@@ -36,6 +34,7 @@ app.use('/api/auth', require('./routes/authRoutes'));
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/conversations', require('./routes/conversationRoutes'));
 app.use('/api/messages', require('./routes/messageRoutes'));
+app.use('/api/upload', require('./routes/uploadRoutes'));
 
 // test route
 app.get('/', (req, res) => {

@@ -1,4 +1,3 @@
-// client/src/components/ChatWindow.jsx
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from '../context/authContext';
 import { useSocket } from '../context/socketContext';
@@ -14,6 +13,7 @@ import {
   CheckIcon,
   ChatBubbleLeftRightIcon,
   EllipsisHorizontalIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/solid';
 
 const ChatWindow = ({ conversation }) => {
@@ -23,6 +23,7 @@ const ChatWindow = ({ conversation }) => {
   const [loading, setLoading] = useState(true);
   const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const markedAsReadRef = useRef(new Set());
@@ -276,16 +277,10 @@ const ChatWindow = ({ conversation }) => {
                 const nextMsg =
                   index < messages.length - 1 ? messages[index + 1] : null;
 
-                // Show date divider
                 const showDateDivider = shouldShowDateDivider(msg, prevMsg);
-
-                // Check if message should be grouped with previous
                 const isGroupedWithPrev = shouldGroupMessages(msg, prevMsg);
-
-                // Check if message should be grouped with next
                 const isGroupedWithNext = shouldGroupMessages(nextMsg, msg);
 
-                // Determine position in group
                 const isFirstInGroup = !isGroupedWithPrev;
                 const isLastInGroup = !isGroupedWithNext;
 
@@ -308,7 +303,7 @@ const ChatWindow = ({ conversation }) => {
                         isMyMessage ? 'justify-end' : 'justify-start'
                       } ${isGroupedWithPrev ? 'mt-0.5' : 'mt-4'}`}
                     >
-                      {/* Avatar for other user (only show for first message in group) */}
+                      {/* Avatar for other user */}
                       {!isMyMessage && (
                         <>
                           {isFirstInGroup ? (
@@ -327,19 +322,43 @@ const ChatWindow = ({ conversation }) => {
                       )}
 
                       {/* Message content */}
-                      <div className={'max-w-xs'}>
+                      <div className="max-w-xs">
                         {/* Message bubble */}
-                        <div
-                          className={`inline-block rounded-lg px-4 py-2 ${
-                            isMyMessage
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-200 text-gray-800'
-                          }`}
-                        >
-                          <p className="wrap-break-word">{msg.content}</p>
-                        </div>
+                        {msg.type === 'image' ? (
+                          <div
+                            className="cursor-pointer overflow-hidden rounded-lg"
+                            onClick={() => setLightboxImage(msg.imageUrl)}
+                          >
+                            <img
+                              src={msg.imageUrl}
+                              alt="Shared image"
+                              className="max-h-64 w-auto rounded-lg object-cover transition hover:opacity-90"
+                            />
+                            {msg.content && (
+                              <div
+                                className={`mt-1 rounded-lg px-4 py-2 ${
+                                  isMyMessage
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-200 text-gray-800'
+                                }`}
+                              >
+                                <p className="wrap-break-word">{msg.content}</p>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div
+                            className={`inline-block rounded-lg px-4 py-2 ${
+                              isMyMessage
+                                ? 'bg-blue-500 text-white'
+                                : 'bg-gray-200 text-gray-800'
+                            }`}
+                          >
+                            <p className="wrap-break-word">{msg.content}</p>
+                          </div>
+                        )}
 
-                        {/* Time and read status (only show for last message in group) */}
+                        {/* Time and read status */}
                         {isLastInGroup && (
                           <div
                             className={`mt-1 flex items-center gap-1 text-xs ${
@@ -405,6 +424,27 @@ const ChatWindow = ({ conversation }) => {
           </button>
         )}
       </div>
+      {/* Image LightBox */}
+      {lightboxImage && (
+        <div
+          className="bg-opacity-90 fixed inset-0 z-50 flex items-center justify-center bg-black"
+          onClick={() => setLightboxImage(null)}
+        >
+          <button
+            onClick={() => setLightboxImage(null)}
+            className="absolute top-4 right-4 flex h-10 w-10 items-center justify-center rounded-full bg-white text-black hover:bg-gray-200"
+          >
+            <XMarkIcon className="h-6 w-6" />
+          </button>
+          <img
+            src={lightboxImage}
+            alt="Full size"
+            className="max-h-[90vh] max-w-[90vw] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+
       {/* Input */}
       <MessageInput convId={convId} />
     </div>
