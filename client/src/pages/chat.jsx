@@ -4,11 +4,14 @@ import { createConversation } from '../services/api';
 import Sidebar from '../components/SideBar';
 import ConversationList from '../components/ConversationList';
 import ChatWindow from '../components/ChatWindow';
+import ProfileModal from '../components/ProfileModal';
+import { UserCircleIcon } from '@heroicons/react/24/outline';
 
 const Chat = () => {
-  const [view, setView] = useState('conversations');
-  const [selectedConversation, setSelectedConversation] = useState(null);
   const { user, logout } = useAuth();
+  const [activeTab, setActiveTab] = useState('conversations');
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   if (!user) {
     return (
@@ -25,7 +28,7 @@ const Chat = () => {
         user.token
       );
       setSelectedConversation(conversation);
-      setView('conversations');
+      setActiveTab('conversations');
     } catch (error) {
       console.error('Failed to create conversation:', error);
     }
@@ -36,58 +39,59 @@ const Chat = () => {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-100">
-      {/* left sidebar */}
-      <div className="flex w-80 shrink-0 flex-col border-r border-gray-200 bg-white">
-        {/* header */}
-        <div className="flex shrink-0 items-center justify-between border-b border-gray-200 p-4">
-          <div className="flex items-center gap-3">
-            <div className="relative h-10 w-10 shrink-0">
-              <img
-                src={user.avatar || 'avatar-default.png'}
-                alt={user.username}
-                className="h-full w-full rounded-full object-cover"
-                onError={(e) => {
-                  e.target.src = '/avatar-default.png';
-                }}
-              />
-              <span className="absolute right-0 bottom-0 h-3 w-3 rounded-full border-2 border-white bg-green-500"></span>
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-semibold">{user.username}</p>
-              <p className="text-xs text-gray-500">Online</p>
-            </div>
+    <div className="flex h-screen">
+      {/* Sidebar */}
+      <div className="flex w-80 flex-col border-r border-gray-200">
+        {/* Header with Profile button */}
+        <div className="flex items-center justify-between border-b border-gray-200 bg-white p-4">
+          <h1 className="text-xl font-bold text-blue-500">Textlo</h1>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowProfileModal(true)}
+              className="rounded-full p-2 hover:bg-gray-100"
+              title="Profile"
+            >
+              <UserCircleIcon className="h-6 w-6 text-gray-600" />
+            </button>
+            <button
+              onClick={logout}
+              className="rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white hover:bg-red-600"
+            >
+              Logout
+            </button>
           </div>
-          <button
-            onClick={logout}
-            className="rounded px-3 py-1 text-sm text-red-500 hover:bg-red-50"
-          >
-            Logout
-          </button>
         </div>
 
-        {/* tabs */}
-        <div className="flex shrink-0 border-b border-gray-200">
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200">
           <button
-            onClick={() => setView('conversations')}
-            className={`flex-1 py-3 text-sm font-medium ${view === 'conversations' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('conversations')}
+            className={`flex-1 px-4 py-3 text-sm font-medium ${
+              activeTab === 'conversations'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
-            Chats
+            Messages
           </button>
           <button
-            onClick={() => setView('users')}
-            className={`flex-1 py-3 text-sm font-medium ${view === 'users' ? 'border-b-2 border-blue-500 text-blue-500' : 'text-gray-500 hover:text-gray-700'}`}
+            onClick={() => setActiveTab('users')}
+            className={`flex-1 px-4 py-3 text-sm font-medium ${
+              activeTab === 'users'
+                ? 'border-b-2 border-blue-500 text-blue-500'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
           >
             Users
           </button>
         </div>
 
-        {/* content */}
+        {/* Content */}
         <div className="flex-1 overflow-hidden">
-          {view === 'conversations' ? (
+          {activeTab === 'conversations' ? (
             <ConversationList
               onSelectConversation={handleSelectConversation}
-              selectedConvId={selectedConversation?._id}
+              selectedConversationId={selectedConversation?._id}
             />
           ) : (
             <Sidebar onSelectUser={handleSelectUser} />
@@ -95,23 +99,24 @@ const Chat = () => {
         </div>
       </div>
 
-      {/* main chat area */}
-      <div className="flex flex-1 flex-col bg-white">
+      {/* Chat Window */}
+      <div className="flex-1">
         {selectedConversation ? (
           <ChatWindow conversation={selectedConversation} />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <div className="text-center">
-              <p className="text-2xl font-semibold text-gray-400">
-                Select a conversation
-              </p>
-              <p className="mt-2 text-gray-500">
-                Choose a chat or start a new conversation
-              </p>
-            </div>
+            <p className="text-gray-400">
+              Select a conversation to start messaging
+            </p>
           </div>
         )}
       </div>
+
+      {/* Profile Modal */}
+      <ProfileModal
+        isOpen={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+      />
     </div>
   );
 };

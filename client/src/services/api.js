@@ -136,3 +136,20 @@ export const uploadImage = async (file, token) => {
 
   return response.json();
 };
+
+export const updateUserProfile = async (data, token) => {
+  const response = await fetch(`${API_URL}/users/profile`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    throw new Error('Failed to update profile');
+  }
+
+  return response.json();
+};

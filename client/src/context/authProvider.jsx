@@ -19,10 +19,17 @@ const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const updateUser = (updatedData) => {
+    const newUser = { ...user, ...updatedData };
+    localStorage.setItem('userInfo', JSON.stringify(newUser));
+    setUser(newUser);
+  };
+
   const value = {
     user,
     login,
     logout,
+    updateUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
