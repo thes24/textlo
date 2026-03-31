@@ -52,6 +52,11 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
       setConversations((prev) => {
         const updated = prev.map((conv) => {
           if (conv._id === message.convId) {
+            const newUnreadCount =
+              message.sender._id !== user._id
+                ? (conv.unreadCount || 0) + 1
+                : conv.unreadCount || 0;
+
             return {
               ...conv,
               lastMessage: {
@@ -59,6 +64,7 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
                 createdAt: message.createdAt,
                 sender: message.sender,
               },
+              unreadCount: newUnreadCount,
             };
           }
           return conv;
@@ -72,12 +78,32 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
       });
     };
 
+    const handleUnreadCountUpdated = ({ convId, count }) => {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === convId ? { ...conv, unreadCount: count } : conv
+        )
+      );
+    };
+
     on('receive_message', handleReceiveMessage);
+    on('unread_count_updated', handleUnreadCountUpdated);
 
     return () => {
       off('receive_message', handleReceiveMessage);
+      off('unread_count_updated', handleUnreadCountUpdated);
     };
-  }, [on, off]);
+  }, [on, off, user._id]);
+
+  useEffect(() => {
+    if (selectedConvId) {
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv._id === selectedConvId ? { ...conv, unreadCount: 0 } : conv
+        )
+      );
+    }
+  }, [selectedConvId]);
 
   const getOtherUser = (conversation) => {
     return conversation.participants.find((p) => p._id !== user._id);
@@ -120,6 +146,7 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
           const otherUser = getOtherUser(conv);
           const isSelected = conv._id === selectedConvId;
           const hasLastMessage = conv.lastMessage;
+          const unreadCount = conv.unreadCount || 0;
 
           const isMyMessage =
             hasLastMessage && conv.lastMessage.sender?._id === user._id;
@@ -132,7 +159,7 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
                 isSelected ? 'bg-blue-50' : ''
               }`}
             >
-              {/* avatar */}
+              {/* Avatar */}
               <div className="relative shrink-0">
                 <img
                   src={otherUser?.avatar || '/avatar-default.svg'}
@@ -147,7 +174,7 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
                 )}
               </div>
 
-              {/* content */}
+              {/* Content */}
               <div className="min-w-0 flex-1 text-left">
                 <div className="flex items-baseline justify-between gap-2">
                   <h3 className="truncate font-semibold text-gray-900">
@@ -160,21 +187,28 @@ const ConversationList = ({ onSelectConversation, selectedConvId }) => {
                   )}
                 </div>
 
-                {hasLastMessage ? (
-                  <p className="mt-1 truncate text-sm text-gray-600">
-                    {isMyMessage && (
-                      <span className="mr-1 text-gray-400">Me:</span>
-                    )}
-                    {conv.lastMessage.content}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-sm text-gray-400 italic">
-                    No messages yet
-                  </p>
-                )}
-              </div>
+                <div className="mt-1 flex items-center justify-between gap-2">
+                  {hasLastMessage ? (
+                    <p className="truncate text-sm text-gray-600">
+                      {isMyMessage && (
+                        <span className="mr-1 text-gray-400">나:</span>
+                      )}
+                      {conv.lastMessage.content || '사진'}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-400 italic">
+                      No messages yet
+                    </p>
+                  )}
 
-              {/* {unreadCOunt} */}
+                  {/* Unread Badge */}
+                  {unreadCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1.5 text-xs font-semibold text-white">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </div>
+              </div>
             </button>
           );
         })}

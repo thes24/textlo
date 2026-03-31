@@ -6,8 +6,18 @@ const convSchema = new mongoose.Schema(
       {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User',
+        required: true,
       },
     ],
+    lastMessage: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Message',
+    },
+    unreadCount: {
+      type: Map,
+      of: Number,
+      default: {},
+    },
     type: {
       type: String,
       enum: ['direct', 'group'],
@@ -19,10 +29,6 @@ const convSchema = new mongoose.Schema(
     },
     avatar: {
       type: String,
-    },
-    lastMessage: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Message',
     },
     admin: {
       type: mongoose.Schema.Types.ObjectId,

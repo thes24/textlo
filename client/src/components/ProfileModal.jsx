@@ -4,7 +4,7 @@ import { useAuth } from '../context/authContext';
 import { uploadImage, updateUserProfile } from '../services/api';
 
 const ProfileModal = ({ isOpen, onClose }) => {
-  const { user, updateUser} = useAuth();
+  const { user, updateUser } = useAuth();
   const [username, setUsername] = useState(user.username);
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(user.avatar);

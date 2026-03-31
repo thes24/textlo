@@ -49,6 +49,16 @@ const socketHandler = (io) => {
 
         const conversation = await Conversation.findById(convId);
 
+        conversation.participants.forEach((ptpId) => {
+          if (ptpId.toString() !== senderId) {
+            const currentCount =
+              conversation.unreadCount?.get(ptpId.toString()) || 0;
+            conversation.unreadCount.set(ptpId.toString(), currentCount + 1);
+          }
+        });
+
+        await conversation.save();
+
         // send to all participants (including sender)
         conversation.participants.forEach((ptpId) => {
           const ptpSocketId = onlineUsers.get(ptpId.toString());
@@ -83,24 +93,35 @@ const socketHandler = (io) => {
     });
 
     // mark as read
-    socket.on('mark_read', async (data) => {
+    socket.on('mark_read', async ({ msgId, userId }) => {
       try {
-        const { msgId, userId } = data;
         const message = await Message.findById(msgId);
 
-        if (!message) {
-          return;
-        }
-
-        // only mark read if it's not my message
-        if (message.sender.toString() !== userId) {
+        if (message && !message.read) {
           message.read = true;
-          message.readAt = Date.now();
+          message.readAt = new Date();
           await message.save();
 
+          // Reset unread count for this user in the conversation
+          const conversation = await Conversation.findById(message.convId);
+          if (conversation) {
+            conversation.unreadCount.set(userId, 0);
+            await conversation.save();
+          }
+
+          // Notify sender
           const senderSocketId = onlineUsers.get(message.sender.toString());
           if (senderSocketId) {
             io.to(senderSocketId).emit('message_read', { msgId });
+          }
+
+          // Notify the user who marked as read (for unread count update)
+          const userSocketId = onlineUsers.get(userId);
+          if (userSocketId) {
+            io.to(userSocketId).emit('unread_count_updated', {
+              convId: message.convId,
+              count: 0,
+            });
           }
         }
       } catch (error) {
