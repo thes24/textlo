@@ -438,47 +438,53 @@ const ChatWindow = ({ conversation }) => {
                       )}
 
                       {/* Message content */}
-                      <div className="max-w-xs">
+                      <div className="flex flex-col">
                         {/* Message bubble */}
-                        {msg.type === 'image' ? (
-                          <div
-                            className="cursor-pointer overflow-hidden rounded-lg"
-                            onClick={() => setLightboxImage(msg.imageUrl)}
-                          >
-                            <img
-                              src={msg.imageUrl}
-                              alt="Shared image"
-                              className="max-h-64 w-auto rounded-lg object-cover transition hover:opacity-90"
-                            />
-                            {msg.content && (
-                              <div
-                                className={`mt-1 rounded-lg px-4 py-2 ${
-                                  isMyMessage
-                                    ? 'bg-blue-500 text-white'
-                                    : 'bg-gray-200 text-gray-800'
-                                }`}
-                              >
-                                <p className="wrap-break-word">{msg.content}</p>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div
-                            className={`inline-block rounded-lg px-4 py-2 ${
-                              isMyMessage
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 text-gray-800'
-                            }`}
-                          >
-                            <p className="wrap-break-word">{msg.content}</p>
-                          </div>
-                        )}
+                        <div
+                          className={`${isMyMessage ? 'self-end' : 'self-start'} max-w-xs`}
+                        >
+                          {msg.type === 'image' ? (
+                            <div
+                              className="cursor-pointer overflow-hidden rounded-lg"
+                              onClick={() => setLightboxImage(msg.imageUrl)}
+                            >
+                              <img
+                                src={msg.imageUrl}
+                                alt="Shared image"
+                                className="max-h-64 w-auto rounded-lg object-cover transition hover:opacity-90"
+                              />
+                              {msg.content && (
+                                <div
+                                  className={`mt-1 rounded-lg px-4 py-2 ${
+                                    isMyMessage
+                                      ? 'bg-blue-500 text-white'
+                                      : 'bg-gray-200 text-gray-800'
+                                  }`}
+                                >
+                                  <p className="wrap-break-word">
+                                    {msg.content}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div
+                              className={`inline-block rounded-lg px-4 py-2 ${
+                                isMyMessage
+                                  ? 'bg-blue-500 text-white'
+                                  : 'bg-gray-200 text-gray-800'
+                              }`}
+                            >
+                              <p className="wrap-break-word">{msg.content}</p>
+                            </div>
+                          )}
+                        </div>
 
                         {/* Time and read status */}
                         {isLastInGroup && (
                           <div
                             className={`mt-1 flex items-center gap-1 text-xs ${
-                              isMyMessage ? 'justify-end' : 'justify-start'
+                              isMyMessage ? 'self-end' : 'self-start'
                             }`}
                           >
                             <span className="text-gray-500">
