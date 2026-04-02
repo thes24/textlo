@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { useAuth } from '../context/authContext';
 import { useSocket } from '../context/socketContext';
-import { getMessages } from '../services/api';
+import { getMessages, searchMessages } from '../services/api';
 import MessageInput from './MessageInput';
 import {
   formatMessageDate,
@@ -14,6 +14,7 @@ import {
   ChatBubbleLeftRightIcon,
   EllipsisHorizontalIcon,
   XMarkIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/solid';
 
 const ChatWindow = ({ conversation }) => {
@@ -24,9 +25,14 @@ const ChatWindow = ({ conversation }) => {
   const [isTyping, setIsTyping] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [lightboxImage, setLightboxImage] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const markedAsReadRef = useRef(new Set());
+  const messageRefs = useRef({});
 
   const convId = conversation?._id;
 
@@ -38,6 +44,47 @@ const ChatWindow = ({ conversation }) => {
   }, [conversation?.participants, user._id]);
 
   const isOnline = onlineUsers.includes(otherUser?._id);
+
+  // Search messages
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const data = await searchMessages(convId, query, user.token);
+      setSearchResults(data.messages);
+    } catch (error) {
+      console.error('Failed to search messages:', error);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Scroll to search result
+  const scrollToMessage = (messageId) => {
+    const messageElement = messageRefs.current[messageId];
+    if (messageElement) {
+      messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+      // Highlight animation
+      messageElement.classList.add('bg-yellow-100');
+      setTimeout(() => {
+        messageElement.classList.remove('bg-yellow-100');
+      }, 2000);
+    }
+  };
+
+  // Clear search
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearch(false);
+  };
 
   // Detect scroll position
   const handleScroll = () => {
@@ -60,6 +107,7 @@ const ChatWindow = ({ conversation }) => {
     if (!convId) return;
 
     markedAsReadRef.current.clear();
+    clearSearch(); // clear search when switching conversations
 
     const fetchMessages = async () => {
       setLoading(true);
@@ -203,7 +251,6 @@ const ChatWindow = ({ conversation }) => {
 
   // Auto scroll to bottom on new messages
   useEffect(() => {
-    // Only auto-scroll if user is near bottom
     if (!messagesContainerRef.current) return;
 
     const { scrollTop, scrollHeight, clientHeight } =
@@ -234,25 +281,90 @@ const ChatWindow = ({ conversation }) => {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-gray-200 p-4">
-        <img
-          src={otherUser.avatar || '/avatar-default.svg'}
-          alt={otherUser.username}
-          className="h-10 w-10 rounded-full object-cover"
-          onError={(e) => (e.target.src = '/avatar-default.svg')}
-        />
-        <div>
-          <h3 className="font-semibold">{otherUser.username}</h3>
-          <p className="text-sm text-gray-500">
-            {isTyping ? (
-              <span className="text-blue-500">typing...</span>
-            ) : isOnline ? (
-              'Online'
-            ) : (
-              'Offline'
-            )}
-          </p>
+      <div className="border-b border-gray-200">
+        <div className="flex items-center justify-between p-4">
+          <div className="flex items-center gap-3">
+            <img
+              src={otherUser.avatar || '/avatar-default.svg'}
+              alt={otherUser.username}
+              className="h-10 w-10 rounded-full object-cover"
+              onError={(e) => (e.target.src = '/avatar-default.svg')}
+            />
+            <div>
+              <h3 className="font-semibold">{otherUser.username}</h3>
+              <p className="text-sm text-gray-500">
+                {isTyping ? (
+                  <span className="text-blue-500">typing...</span>
+                ) : isOnline ? (
+                  'Online'
+                ) : (
+                  'Offline'
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* Search toggle button */}
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="rounded-full p-2 hover:bg-gray-100"
+            title="Search messages"
+          >
+            <MagnifyingGlassIcon className="h-5 w-5 text-gray-600" />
+          </button>
         </div>
+
+        {/* Search Bar */}
+        {showSearch && (
+          <div className="border-t border-gray-200 p-3">
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute top-1/2 left-3 h-5 w-5 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search messages..."
+                value={searchQuery}
+                onChange={(e) => handleSearch(e.target.value)}
+                className="w-full rounded-lg border border-gray-300 py-2 pr-10 pl-10 text-sm focus:border-blue-500 focus:outline-none"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+
+            {/* Search Results */}
+            {searching && (
+              <div className="mt-2 text-center text-sm text-gray-500">
+                Searching...
+              </div>
+            )}
+            {!searching && searchQuery && searchResults.length > 0 && (
+              <div className="mt-2 max-h-40 overflow-y-auto rounded-lg border border-gray-200 bg-white">
+                {searchResults.map((msg) => (
+                  <button
+                    key={msg._id}
+                    onClick={() => scrollToMessage(msg._id)}
+                    className="w-full border-b border-gray-100 p-2 text-left text-sm last:border-0 hover:bg-gray-50"
+                  >
+                    <p className="truncate font-medium text-gray-900">
+                      {msg.sender.username}
+                    </p>
+                    <p className="truncate text-gray-600">{msg.content}</p>
+                  </button>
+                ))}
+              </div>
+            )}
+            {!searching && searchQuery && searchResults.length === 0 && (
+              <div className="mt-2 text-center text-sm text-gray-500">
+                No messages found
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Messages */}
@@ -285,7 +397,11 @@ const ChatWindow = ({ conversation }) => {
                 const isLastInGroup = !isGroupedWithNext;
 
                 return (
-                  <div key={msg._id || index}>
+                  <div
+                    key={msg._id || index}
+                    ref={(el) => (messageRefs.current[msg._id] = el)}
+                    className="transition-colors duration-500"
+                  >
                     {/* Date divider */}
                     {showDateDivider && (
                       <div className="my-4 flex items-center gap-4">
@@ -424,7 +540,8 @@ const ChatWindow = ({ conversation }) => {
           </button>
         )}
       </div>
-      {/* Image LightBox */}
+
+      {/* Image Lightbox */}
       {lightboxImage && (
         <div
           className="bg-opacity-90 fixed inset-0 z-50 flex items-center justify-center bg-black"

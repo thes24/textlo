@@ -153,3 +153,20 @@ export const updateUserProfile = async (data, token) => {
 
   return response.json();
 };
+
+export const searchMessages = async (convId, query, token) => {
+  const response = await fetch(
+    `${API_URL}/messages/${convId}/search?q=${encodeURIComponent(query)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to search messages');
+  }
+
+  return response.json();
+};
